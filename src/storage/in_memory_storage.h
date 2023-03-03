@@ -12,6 +12,7 @@ typedef struct im_inode {
 
     size_t _capacity;
     char *_data;
+    const char *_path;
 } im_inode;
 
 typedef struct im_storage {
@@ -30,5 +31,6 @@ void delete_im_storage(im_storage *st);
 int im_write(im_inode *inode, const char *data, size_t size, size_t offset);
 int im_read(im_inode *inode, char *data, size_t size, size_t offset);
 unsigned long im_create(im_storage *st);
+int path_search(im_storage *st, const char *path);
 
 #endif

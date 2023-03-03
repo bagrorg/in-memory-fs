@@ -127,3 +127,12 @@ unsigned long im_create(im_storage *st) {
 }
 
 
+int path_search(im_storage *st, const char *path) {
+    for (size_t i = 0; i < st->_cur; i++) {
+        if (strcmp(st->_inodes[i]._path, path) == 0) {
+            return i; 
+        } 
+    }
+    
+    return -1;
+}
