@@ -1,3 +1,4 @@
+#include <cstddef>
 #include <gtest/gtest.h>
 #include <string>
 
@@ -104,6 +105,34 @@ TEST(STORAGE_TESTS, FAILURE_WRTIE_NULL) {
     ASSERT_EQ(im_write(&st._inodes[ino], NULL, 2048, 1024), -1);
     
     delete_im_storage(&st);
+}
+
+
+TEST(STORAGE_TREE_TESTS, CREATE_TREE_TEST) {
+    im_tree tree = im_tree_create();
+
+    ASSERT_EQ(tree.root_node.entries_count, 0);
+    ASSERT_EQ(tree.root_node.entries, nullptr);
+    ASSERT_EQ(tree.root_node.inode, 0);
+    ASSERT_EQ(tree.root_node.dir, true);
+    ASSERT_EQ(strcmp(tree.root_node.fname, ""), 0);
+}
+
+TEST(STORAGE_TREE_TESTS, ADD_NODE_TEST) {
+    im_tree_node node = {
+        .dir = false,
+        .inode = 1,
+        .fname = "hello.txt",
+        .entries = NULL,
+        .entries_count = 0,
+    };
+
+    im_tree tree = im_tree_create();
+
+    im_tree_add_entry(&tree, "/hello.txt", &node);
+
+    ASSERT_EQ(tree.root_node.entries_count, 1);
+    ASSERT_EQ(tree.root_node.entries[0], &node); 
 }
 
 int main(int argc, char **argv) {

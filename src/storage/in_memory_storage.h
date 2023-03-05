@@ -3,6 +3,7 @@
 
 #include <sys/stat.h>
 #include <stddef.h>
+#include <stdbool.h>
 
 #define INODES_SIZE 1024
 
@@ -24,6 +25,20 @@ typedef struct im_storage {
 
 } im_storage;
 
+typedef struct im_tree_node {
+    bool dir;
+    size_t inode;  
+    const char *fname;
+ 
+    struct im_tree_node **entries; 
+    size_t entries_count;
+} im_tree_node;
+
+typedef struct im_tree {
+    im_tree_node root_node;
+} im_tree;
+
+
 void add_im_inode(im_storage *st, im_inode inode);
 im_storage create_im_storage();
 void delete_im_storage(im_storage *st);
@@ -32,5 +47,11 @@ int im_write(im_inode *inode, const char *data, size_t size, size_t offset);
 int im_read(im_inode *inode, char *data, size_t size, size_t offset);
 unsigned long im_create(im_storage *st);
 int path_search(im_storage *st, const char *path);
+
+int im_tree_add_entry(im_tree *tree, const char *path, im_tree_node *node);
+im_tree_node* im_tree_get_entry(im_tree *tree, const char *path);
+bool im_tree_exists(im_tree *tree, const char *path);
+
+im_tree im_tree_create();
 
 #endif

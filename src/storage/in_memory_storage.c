@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+
 void add_im_inode(im_storage *st, im_inode inode) {
     st->_inodes[st->_cur] = inode;
     st->_cur++;
@@ -135,4 +136,111 @@ int path_search(im_storage *st, const char *path) {
     }
     
     return -1;
+}
+
+
+
+int im_tree_add_entry(im_tree *tree, const char *path, im_tree_node *node) {
+    ///////////////////////
+    // Asserts for debug //
+    ///////////////////////
+    #ifdef DEBUG
+    assert(tree != NULL);
+    assert(node != NULL);
+    assert(path != NULL);
+    #endif
+
+    im_tree_node *parent = im_tree_get_entry(tree, path);
+
+
+    ///////////////////////////////////////
+    // Add entry on successfull traverse //
+    ///////////////////////////////////////
+    if (parent != NULL) {
+        if (!parent->dir) {
+            return -1;
+        } 
+        
+        im_tree_node **new_data = (im_tree_node **) realloc(parent->entries, (parent->entries_count + 1) * sizeof(im_tree_node *));
+        if (new_data == NULL) {
+            return -1;
+        }
+
+        parent->entries = new_data;
+        parent->entries[parent->entries_count] = node;
+        parent->entries_count++;
+    }
+
+    return 0;
+}
+
+im_tree_node* im_tree_get_entry(im_tree *tree, const char *path) {
+    ///////////////////////
+    // Asserts for debug //
+    ///////////////////////
+    #ifdef DEBUG
+    assert(tree != NULL);
+    assert(path != NULL);
+    #endif
+
+    //////////////////
+    // Return value //
+    //////////////////
+    int ret = 0;
+
+    //////////////////////////
+    // Path to iterate over //
+    //////////////////////////
+    char *path_tmp = strdup(path);
+    if (path_tmp == NULL) {
+        return NULL;
+    }
+    char *fname = strtok(path_tmp, "/");
+
+    /////////////////////////
+    // Traversing the tree //
+    /////////////////////////
+    im_tree_node *cur = &tree->root_node;
+
+    while (fname != NULL) {
+        if (!cur->dir) {
+            return NULL;
+        }
+
+        for (size_t i = 0; i < cur->entries_count; i++) {
+            if (strcmp(cur->entries[i]->fname, fname) == 0) {
+                cur = cur->entries[i];
+                break;
+            }
+        }
+
+        if (cur == NULL) {
+            return NULL;
+        }
+
+        fname = strtok(NULL, "/");
+    }
+
+    free(path_tmp);
+    return cur;
+}
+
+bool im_tree_exists(im_tree *tree, const char *path) {
+    return (im_tree_get_entry(tree, path) != NULL);
+}
+
+im_tree im_tree_create() {
+    im_tree_node root = {
+        .entries_count = 0,
+        .entries = NULL,
+        .fname = "",
+        .dir = true,
+        .inode = 0                      //TODO
+    };
+
+    im_tree tree = {
+        .root_node = root, 
+    };
+
+    return tree;
 }
