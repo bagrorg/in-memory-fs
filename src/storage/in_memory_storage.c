@@ -12,6 +12,7 @@ void add_im_inode(im_storage *st, im_inode inode) {
 im_storage create_im_storage() {
     im_storage st;
     st._cur = 0;
+    st._fstree = im_tree_create();
     return st;
 }
 
@@ -31,6 +32,8 @@ void delete_im_storage(im_storage *st) {
         if (st->_inodes[i]._data == NULL) continue;
         free(st->_inodes[i]._data);
     }
+
+    im_tree_delete(&st->_fstree);
 }
 
 static size_t max(size_t x, size_t y) {
@@ -127,20 +130,7 @@ unsigned long im_create(im_storage *st) {
     return inode._stat.st_ino;
 }
 
-
-int path_search(im_storage *st, const char *path) {
-    for (size_t i = 0; i < st->_cur; i++) {
-        if (strcmp(st->_inodes[i]._path, path) == 0) {
-            return i; 
-        } 
-    }
-    
-    return -1;
-}
-
-
-
-int im_tree_add_entry(im_tree *tree, const char *path, im_tree_node *node) {
+int im_tree_add_entry(im_storage *st, const char *path, im_tree_node *node) {
     ///////////////////////
     // Asserts for debug //
     ///////////////////////
@@ -150,7 +140,7 @@ int im_tree_add_entry(im_tree *tree, const char *path, im_tree_node *node) {
     assert(path != NULL);
     #endif
 
-    im_tree_node *parent = im_tree_get_entry(tree, path);
+    im_tree_node *parent = im_tree_get_entry(st, path);
 
 
     ///////////////////////////////////////
@@ -174,7 +164,7 @@ int im_tree_add_entry(im_tree *tree, const char *path, im_tree_node *node) {
     return 0;
 }
 
-im_tree_node* im_tree_get_entry(im_tree *tree, const char *path) {
+im_tree_node* im_tree_get_entry(im_storage *st, const char *path) {
     ///////////////////////
     // Asserts for debug //
     ///////////////////////
@@ -200,7 +190,7 @@ im_tree_node* im_tree_get_entry(im_tree *tree, const char *path) {
     /////////////////////////
     // Traversing the tree //
     /////////////////////////
-    im_tree_node *cur = &tree->root_node;
+    im_tree_node *cur = &st->_fstree.root_node;
 
     while (fname != NULL) {
         if (!cur->dir) {
@@ -225,8 +215,8 @@ im_tree_node* im_tree_get_entry(im_tree *tree, const char *path) {
     return cur;
 }
 
-bool im_tree_exists(im_tree *tree, const char *path) {
-    return (im_tree_get_entry(tree, path) != NULL);
+bool im_tree_exists(im_storage *st, const char *path) {
+    return (im_tree_get_entry(st, path) != NULL);
 }
 
 im_tree im_tree_create() {
@@ -243,4 +233,19 @@ im_tree im_tree_create() {
     };
 
     return tree;
+}
+
+void im_tree_delete_node(im_tree_node *node) {
+    if (node->dir) {
+        for (size_t i = 0; i < node->entries_count; i++) {
+            im_tree_delete_node(node->entries[i]);
+        }
+        free(node->entries);
+    }
+
+    // Should delete fname here?
+}
+
+void im_tree_delete(im_tree *tree) {
+    im_tree_delete_node(&tree->root_node); 
 }

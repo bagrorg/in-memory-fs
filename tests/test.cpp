@@ -1,4 +1,5 @@
 #include <cstddef>
+#include <gtest/gtest-death-test.h>
 #include <gtest/gtest.h>
 #include <string>
 
@@ -127,13 +128,71 @@ TEST(STORAGE_TREE_TESTS, ADD_NODE_TEST) {
         .entries_count = 0,
     };
 
-    im_tree tree = im_tree_create();
+    im_storage st = create_im_storage();
 
-    im_tree_add_entry(&tree, "/hello.txt", &node);
+    im_tree_add_entry(&st, "/hello.txt", &node);
 
-    ASSERT_EQ(tree.root_node.entries_count, 1);
-    ASSERT_EQ(tree.root_node.entries[0], &node); 
+    ASSERT_EQ(st._fstree.root_node.entries_count, 1);
+    ASSERT_EQ(st._fstree.root_node.entries[0], &node);
+
+    delete_im_storage(&st);
 }
+
+TEST(STORAGE_TREE_TESTS, ADD_MORE_NODES_TEST) {
+    im_tree_node dir_node1 = {
+        .dir = true,
+        .inode = 1,
+        .fname = "home",
+        .entries = NULL,
+        .entries_count = 0
+    };
+
+    im_tree_node dir_node2 = {
+        .dir = true,
+        .inode = 2,
+        .fname = "usr",
+        .entries = NULL,
+        .entries_count = 0,
+    };
+
+
+    im_tree_node reg_node1 = {
+        .dir = false,
+        .inode = 3,
+        .fname = "/usr/hello.txt",
+        .entries = NULL,
+        .entries_count = 0,
+    };
+
+    im_tree_node reg_node2 = {
+        .dir = false,
+        .inode = 4,
+        .fname = "/hello2.txt",
+        .entries = NULL,
+        .entries_count = 0,
+    };
+    
+    im_storage st = create_im_storage();
+
+    im_tree_add_entry(&st, "/home", &dir_node1);
+    im_tree_add_entry(&st, "/usr", &dir_node2);
+    im_tree_add_entry(&st, "/usr/hello.txt", &reg_node1);
+    im_tree_add_entry(&st, "/hello2.txt", &reg_node2);
+
+
+    ASSERT_EQ(st._fstree.root_node.entries_count, 3);
+    ASSERT_EQ(st._fstree.root_node.entries[0], &dir_node1);
+    ASSERT_EQ(st._fstree.root_node.entries[1], &dir_node2);
+    ASSERT_EQ(st._fstree.root_node.entries[2], &reg_node2);
+    ASSERT_EQ(st._fstree.root_node.entries[1]->entries_count, 1);
+    ASSERT_EQ(st._fstree.root_node.entries[1]->entries[0], &reg_node1);
+
+
+
+    delete_im_storage(&st);
+
+}
+
 
 int main(int argc, char **argv) {
     testing::InitGoogleTest(&argc, argv);
