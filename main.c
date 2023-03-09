@@ -1,5 +1,6 @@
 #include "src/storage/in_memory_storage.h"
 
+#include <stdbool.h>
 #include <string.h>
 #include <errno.h>
 #include <stdio.h>
@@ -13,29 +14,32 @@ static im_storage *st;
 
 /** Create a directory */
 int im_fuse_mkdir(const char *path, mode_t mode) {
-    if (path_search(st, path) == -1) {
+    if (!im_tree_exists(st, path)) {
         unsigned long node_id = im_create(st); //TODO ERROR?
         
         st->_inodes[node_id]._path = path;
         st->_inodes[node_id]._stat.st_mode = mode | S_IFDIR;
         st->_inodes[node_id]._stat.st_gid =fuse_get_context()->gid;
         st->_inodes[node_id]._stat.st_uid =fuse_get_context()->uid;
-        
-        return 0; 
+       
+        im_tree_add_entry(st, path, true, node_id); 
 
+        return 0; 
     }
 
     return -1;  // TODO ERROR
 }
 
 int im_fuse_mknod(const char *path, mode_t mode, dev_t dev) {
-    if (path_search(st, path) == -1) {
+    if (!im_tree_exists(st, path)) {
         unsigned long node_id = im_create(st);
 
         st->_inodes[node_id]._path = path;
         st->_inodes[node_id]._stat.st_mode = mode | S_IFREG;
         st->_inodes[node_id]._stat.st_gid =fuse_get_context()->gid;
         st->_inodes[node_id]._stat.st_uid =fuse_get_context()->uid;
+        
+        im_tree_add_entry(st, path, false, node_id);
 
         // TODO ADD PARENT AND AT MKDIR
         //
@@ -53,7 +57,8 @@ int im_fuse_getattr(const char *path, struct stat *statbuf) {
 	return 0;
     } 
 
-    int id = path_search(st, path); 
+    im_tree_node *fsnode = im_tree_get_entry(st, path); 
+    size_t id = fsnode->inode;
 
     if (id != -1) {
         *statbuf = st->_inodes[id]._stat;   
