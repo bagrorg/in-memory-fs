@@ -12,7 +12,7 @@ typedef struct im_tree_node {
     size_t inode;  
     const char *fname;
  
-    struct im_tree_node **entries; 
+    struct im_tree_node *entries; 
     size_t entries_count;
 } im_tree_node;
 
@@ -47,7 +47,7 @@ int im_write(im_inode *inode, const char *data, size_t size, size_t offset);
 int im_read(im_inode *inode, char *data, size_t size, size_t offset);
 unsigned long im_create(im_storage *st);
 
-int im_tree_add_entry(im_storage *st, const char *path, im_tree_node *node);
+int im_tree_add_entry(im_storage *st, const char *path, bool is_dir, size_t inode);
 im_tree_node* im_tree_get_entry(im_storage *st, const char *path);
 bool im_tree_exists(im_storage *st, const char *path);
 

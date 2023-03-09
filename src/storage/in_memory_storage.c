@@ -2,7 +2,7 @@
 
 #include <stdlib.h>
 #include <string.h>
-
+#include <libgen.h>
 
 void add_im_inode(im_storage *st, im_inode inode) {
     st->_inodes[st->_cur] = inode;
@@ -130,7 +130,7 @@ unsigned long im_create(im_storage *st) {
     return inode._stat.st_ino;
 }
 
-int im_tree_add_entry(im_storage *st, const char *path, im_tree_node *node) {
+int im_tree_add_entry(im_storage *st, const char *path, bool is_dir, size_t inode) {
     ///////////////////////
     // Asserts for debug //
     ///////////////////////
@@ -139,8 +139,16 @@ int im_tree_add_entry(im_storage *st, const char *path, im_tree_node *node) {
     assert(node != NULL);
     assert(path != NULL);
     #endif
+    char *basename_cpy = strdup(path);  
+    char *dirname_cpy = strdup(path);
+    if (dirname_cpy == NULL || basename_cpy == NULL) {
+        return -1; //TODO
+    }
 
-    im_tree_node *parent = im_tree_get_entry(st, path);
+    char *dirname_str = dirname(dirname_cpy);
+    char *basename_str = basename(basename_cpy);
+
+    im_tree_node *parent = im_tree_get_entry(st, dirname_str);
 
 
     ///////////////////////////////////////
@@ -151,14 +159,24 @@ int im_tree_add_entry(im_storage *st, const char *path, im_tree_node *node) {
             return -1;
         } 
         
-        im_tree_node **new_data = (im_tree_node **) realloc(parent->entries, (parent->entries_count + 1) * sizeof(im_tree_node *));
+        im_tree_node *new_data = (im_tree_node *) realloc(parent->entries, (parent->entries_count + 1) * sizeof(im_tree_node));
         if (new_data == NULL) {
             return -1;
         }
+        
+        im_tree_node node = {
+            .dir = is_dir,
+            .inode = inode,
+            .entries = NULL,
+            .entries_count = 0,
+            .fname = basename_str,
+        };
 
         parent->entries = new_data;
         parent->entries[parent->entries_count] = node;
         parent->entries_count++;
+    } else {
+        return -1;
     }
 
     return 0;
@@ -198,8 +216,8 @@ im_tree_node* im_tree_get_entry(im_storage *st, const char *path) {
         }
 
         for (size_t i = 0; i < cur->entries_count; i++) {
-            if (strcmp(cur->entries[i]->fname, fname) == 0) {
-                cur = cur->entries[i];
+            if (strcmp(cur->entries[i].fname, fname) == 0) {
+                cur = &cur->entries[i];
                 break;
             }
         }
@@ -238,7 +256,7 @@ im_tree im_tree_create() {
 void im_tree_delete_node(im_tree_node *node) {
     if (node->dir) {
         for (size_t i = 0; i < node->entries_count; i++) {
-            im_tree_delete_node(node->entries[i]);
+            im_tree_delete_node(&node->entries[i]);
         }
         free(node->entries);
     }
