@@ -1,3 +1,4 @@
+#include <asm-generic/errno.h>
 #define FUSE_USE_VERSION 30
 
 #include "src/storage/in_memory_storage.h"
@@ -34,7 +35,8 @@ int im_fuse_mkdir(const char *path, mode_t mode) {
         st->_inodes[node_id]._stat.st_mode = mode | S_IFDIR;
         st->_inodes[node_id]._stat.st_gid =fuse_get_context()->gid;
         st->_inodes[node_id]._stat.st_uid =fuse_get_context()->uid;
-       
+        st->_inodes[node_id]._open = 0; 
+
         im_tree_add_entry(st, path, true, node_id); 
 
         return 0; 
@@ -54,6 +56,7 @@ int im_fuse_mknod(const char *path, mode_t mode, dev_t dev) {
         st->_inodes[node_id]._stat.st_mode = mode | S_IFREG;
         st->_inodes[node_id]._stat.st_gid =fuse_get_context()->gid;
         st->_inodes[node_id]._stat.st_uid =fuse_get_context()->uid;
+        st->_inodes[node_id]._open = 0;
         
         im_tree_add_entry(st, path, false, node_id);
 
@@ -76,7 +79,10 @@ int im_fuse_getattr(const char *path, struct stat *statbuf) {
         return 0;
     } 
 
-    im_tree_node *fsnode = im_tree_get_entry(st, path); 
+    im_tree_node *fsnode = im_tree_get_entry(st, path);
+    if (fsnode == NULL) {
+        return -ENOENT;
+    }
     size_t id = fsnode->inode;
 
     if (id != -1) {
@@ -129,7 +135,16 @@ int im_fuse_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t o
     if (!entry->dir) {
         return -ENOTDIR;
     }
-    for (size_t i = 0; i < entry->entries_count; i++) {
+
+    if (filler(buf, ".", NULL, 0) != 0) {
+        return -ENOMEM;
+    }
+
+    if (filler(buf, "..", NULL, 0) != 0) {
+        return -ENOMEM;
+    }
+
+    for (size_t i = 2; i < entry->entries_count; i++) {
         if (filler(buf, entry->entries[i]->fname, NULL, 0) != 0) {
 
             return -ENOMEM;
