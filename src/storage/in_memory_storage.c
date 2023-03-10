@@ -141,6 +141,10 @@ int im_tree_add_entry(im_storage *st, const char *path, bool is_dir, size_t inod
     assert(node != NULL);
     assert(path != NULL);
     #endif
+    if (im_tree_exists(st, path)) {
+        return -1; //TODO
+    }
+
     char *basename_cpy = strdup(path);  
     char *dirname_cpy = strdup(path);
     if (dirname_cpy == NULL || basename_cpy == NULL) {
@@ -172,6 +176,7 @@ int im_tree_add_entry(im_storage *st, const char *path, bool is_dir, size_t inod
             .entries = NULL,
             .entries_count = 0,
             .fname = basename_str,
+            .obsolete = false
         };
 
         parent->entries = new_data;
@@ -216,15 +221,17 @@ im_tree_node* im_tree_get_entry(im_storage *st, const char *path) {
         if (!cur->dir) {
             return NULL;
         }
-
+        
+        bool found = false;
         for (size_t i = 0; i < cur->entries_count; i++) {
-            if (strcmp(cur->entries[i].fname, fname) == 0) {
+            if (!cur->entries[i].obsolete && (strcmp(cur->entries[i].fname, fname) == 0)) {
                 cur = &cur->entries[i];
+                found = true;
                 break;
             }
         }
 
-        if (cur == NULL) {
+        if (cur == NULL || !found) {
             return NULL;
         }
 
@@ -245,7 +252,8 @@ im_tree im_tree_create() {
         .entries = NULL,
         .fname = "",
         .dir = true,
-        .inode = 0                      //TODO
+        .inode = 0,
+        .obsolete = false,
     };
 
     im_tree tree = {
@@ -262,6 +270,8 @@ void im_tree_delete_node(im_tree_node *node) {
         }
         free(node->entries);
     }
+
+    node->obsolete = true;
 }
 
 void im_tree_delete(im_tree *tree) {

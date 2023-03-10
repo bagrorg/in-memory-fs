@@ -8,6 +8,7 @@
 #define INODES_SIZE 1024
 
 typedef struct im_tree_node {
+    bool obsolete;
     bool dir;
     size_t inode;  
     const char *fname;
