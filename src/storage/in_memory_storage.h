@@ -22,7 +22,6 @@ typedef struct im_tree {
 
 typedef struct im_inode {
     struct stat _stat;
-    struct im_inode *_parent;
 
     int _open;
     size_t _capacity;
