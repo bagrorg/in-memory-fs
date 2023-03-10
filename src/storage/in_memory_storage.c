@@ -124,7 +124,7 @@ unsigned long im_create(im_storage *st) {
     im_inode inode;
     inode._capacity = 0;
     inode._stat.st_size = 0;
-    inode._stat.st_ino = st->_cur++;
+    inode._stat.st_ino = st->_cur;
     inode._data = NULL;
 
     add_im_inode(st, inode);
@@ -262,9 +262,6 @@ void im_tree_delete_node(im_tree_node *node) {
         }
         free(node->entries);
     }
-
-    // Should delete fname here?
-    free(node);
 }
 
 void im_tree_delete(im_tree *tree) {
