@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <libgen.h>
+#include <errno.h>
 
 void add_im_inode(im_storage *st, im_inode inode) {
     st->_inodes[st->_cur] = inode;
@@ -47,11 +48,11 @@ int im_write(im_inode *inode, const char *data, size_t size, size_t offset) {
     // Check logic size //
     //////////////////////
     if (inode->_stat.st_size < offset) {    // TODO OR =?
-        return -1;  // TODO
+        return -EOVERFLOW;  // TODO
     }
 
     if (data == NULL) {
-        return -1;              //TODO
+        return -EFAULT;              //TODO
     }
 
     ////////////////////////////
@@ -60,7 +61,7 @@ int im_write(im_inode *inode, const char *data, size_t size, size_t offset) {
     if (inode->_capacity <= offset + size) {    // TODO =?
         char *new_ptr = realloc(inode->_data, offset + size);
         if (new_ptr == NULL) {
-            return -1;      // TODO
+            return -ENOMEM;      // TODO
         }
 
         inode->_capacity = offset + size;
@@ -78,20 +79,24 @@ int im_write(im_inode *inode, const char *data, size_t size, size_t offset) {
     // Set data and recalc size //
     //////////////////////////////
     if (memcpy(inode->_data + offset, data, size) == NULL) {        //TODO valid?
-        return -1;          // TODO errno
+        return -EFAULT;          // TODO errno
     }
     
     inode->_stat.st_size = max(inode->_stat.st_size, offset + size);
 
-    return 0;
+    return size;
+}
+
+static size_t min(size_t x, size_t y) {
+    return x < y ? x : y;
 }
 
 int im_read(im_inode *inode, char *data, size_t size, size_t offset) {
     //////////////////////
     // Check logic size //
     //////////////////////
-    if (inode->_stat.st_size < offset || inode->_stat.st_size < offset + size) { //TODO valid?
-        return -1;  //TODO
+    if (inode->_stat.st_size < offset) { //TODO valid?
+        return -EOVERFLOW;  //TODO
     }
 
     // TODO SHOULD WE ASSUME THAT DATA ALLOCATED?
@@ -103,11 +108,13 @@ int im_read(im_inode *inode, char *data, size_t size, size_t offset) {
     assert(inode->_data != NULL);
     #endif
 
-    if (memcpy(data, inode->_data + offset, size) == NULL) {    //TODO valid?
-        return -1; //TODO
+    size_t result_size = min(offset + size, inode->_stat.st_size) - offset;
+
+    if (memcpy(data, inode->_data + offset, result_size) == NULL) {    //TODO valid?
+        return -EFAULT; //TODO
     }
 
-    return 0;
+    return result_size;
 }
 
 unsigned long im_create(im_storage *st) {

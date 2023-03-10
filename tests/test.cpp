@@ -1,3 +1,4 @@
+#include <asm-generic/errno.h>
 #include <cstddef>
 #include <cstring>
 #include <gtest/gtest-death-test.h>
@@ -21,7 +22,7 @@ TEST(STORAGE_TESTS, WRTIE) {
 
     unsigned long ino = im_create(&st);
     ASSERT_NE(ino, -1);
-    ASSERT_EQ(im_write(&st._inodes[ino], data.c_str(), data.size(), 0), 0);
+    ASSERT_EQ(im_write(&st._inodes[ino], data.c_str(), data.size(), 0), data.size());
 
     ASSERT_EQ(std::string(st._inodes[ino]._data), data);
 
@@ -43,7 +44,7 @@ TEST(STORAGE_TESTS, READ) {
 
     char *buffer = (char *)malloc(sizeof(char) * data.size());
 
-    ASSERT_EQ(im_read(&st._inodes[ino], buffer, data.size(), 0), 0);
+    ASSERT_EQ(im_read(&st._inodes[ino], buffer, data.size(), 0), data.size());
 
     ASSERT_EQ(std::string(buffer), data);
 
@@ -59,8 +60,8 @@ TEST(STORAGE_TESTS, READ_WRTIE) {
 
     unsigned long ino = im_create(&st);
     ASSERT_NE(ino, -1);
-    ASSERT_EQ(im_write(&st._inodes[ino], data.c_str(), data.size(), 0), 0);
-    ASSERT_EQ(im_read(&st._inodes[ino], buffer, data.size(), 0), 0);
+    ASSERT_EQ(im_write(&st._inodes[ino], data.c_str(), data.size(), 0), data.size());
+    ASSERT_EQ(im_read(&st._inodes[ino], buffer, data.size(), 0), data.size());
 
     ASSERT_EQ(std::string(buffer), data);
 
@@ -75,13 +76,13 @@ TEST(STORAGE_TESTS, READ_WRTIE_OFFSET) {
 
     unsigned long ino = im_create(&st);
     ASSERT_NE(ino, -1);
-    ASSERT_EQ(im_write(&st._inodes[ino], data.c_str(), data.size(), 0), 0);
-    ASSERT_EQ(im_write(&st._inodes[ino], data.c_str(), data.size(), 12), 0);
-    ASSERT_EQ(im_read(&st._inodes[ino], buffer, data.size(), 12), 0);
+    ASSERT_EQ(im_write(&st._inodes[ino], data.c_str(), data.size(), 0), data.size());
+    ASSERT_EQ(im_write(&st._inodes[ino], data.c_str(), data.size(), 12), data.size());
+    ASSERT_EQ(im_read(&st._inodes[ino], buffer, data.size(), 12), data.size());
 
     ASSERT_EQ(std::string(buffer), data);
 
-    ASSERT_EQ(im_read(&st._inodes[ino], buffer, data.size(), 11), 0);
+    ASSERT_EQ(im_read(&st._inodes[ino], buffer, data.size(), 11), data.size());
     ASSERT_NE(std::string(buffer), data);
 
     delete_im_storage(&st);
@@ -94,7 +95,7 @@ TEST(STORAGE_TESTS, FAILURE_WRTIE_OFFSET) {
 
     unsigned long ino = im_create(&st);
     ASSERT_NE(ino, -1);
-    ASSERT_EQ(im_write(&st._inodes[ino], data.c_str(), data.size(), 1024), -1);
+    ASSERT_EQ(im_write(&st._inodes[ino], data.c_str(), data.size(), 1024), -EOVERFLOW);
 
     delete_im_storage(&st);
 }
@@ -104,7 +105,7 @@ TEST(STORAGE_TESTS, FAILURE_WRTIE_NULL) {
 
     unsigned long ino = im_create(&st);
     ASSERT_NE(ino, -1);
-    ASSERT_EQ(im_write(&st._inodes[ino], NULL, 2048, 1024), -1);
+    ASSERT_EQ(im_write(&st._inodes[ino], NULL, 2048, 1024), -EOVERFLOW);
     
     delete_im_storage(&st);
 }

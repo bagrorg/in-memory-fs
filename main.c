@@ -304,19 +304,11 @@ int im_fuse_read(const char *path, char *buf, size_t size, off_t offset, struct 
     fprintf(fp, "\nim_read(path=\"%s\", size=%ld, offset=%ld)\n", path, size, offset);
     fflush(fp);
     size_t node_id = fi->fh;
-    if (node_id == -1 || st->_inodes[node_id]._open > 0) {
+    if (node_id == -1 || st->_inodes[node_id]._open == 0) {
         return -EBADF;
     }
 
-    if (st->_inodes[node_id]._capacity <= offset) {
-        return -EINVAL;
-    } else if (st->_inodes[node_id]._capacity < offset + size) {
-        memcpy(buf, st->_inodes[node_id]._data+offset, st->_inodes[node_id]._capacity - offset);
-        return st->_inodes[node_id]._capacity - offset;
-    }
-
-    memcpy(buf, st->_inodes[node_id]._data+offset, size);
-    return size;
+    return im_read(&st->_inodes[node_id], buf, size, offset);
 }
 
 /** Write data to an open file */
@@ -326,15 +318,10 @@ int im_fuse_write(const char *path, const char *buf, size_t size, off_t offset,
 	    path, size, offset);
     fflush(fp);
     size_t node_id = fi->fh;
-    if (node_id == -1 || st->_inodes[node_id]._open > 0) {
+    if (node_id == -1 || st->_inodes[node_id]._open == 0) {
         return -EBADF;
     }
-
-    if (st->_inodes[node_id]._capacity < offset + size) {
-        im_fuse_truncate(path, size+offset);
-    }
-    memcpy(st->_inodes[node_id]._data+offset, buf, size);
-    return size;
+    return im_write(&st->_inodes[node_id], buf, size, offset);
 }
 
 
