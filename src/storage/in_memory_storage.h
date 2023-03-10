@@ -24,6 +24,7 @@ typedef struct im_inode {
     struct stat _stat;
     struct im_inode *_parent;
 
+    int _open;
     size_t _capacity;
     char *_data;
     const char *_path;
@@ -53,4 +54,5 @@ bool im_tree_exists(im_storage *st, const char *path);
 
 im_tree im_tree_create();
 void im_tree_delete(im_tree *tree);
+void im_tree_delete_node(im_tree_node *node);
 #endif

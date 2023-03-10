@@ -13,6 +13,8 @@ im_storage create_im_storage() {
     im_storage st;
     st._cur = 0;
     st._fstree = im_tree_create();
+    im_create(&st);
+    st._inodes[0]._stat.st_mode = S_IFDIR;
     return st;
 }
 
@@ -262,6 +264,7 @@ void im_tree_delete_node(im_tree_node *node) {
     }
 
     // Should delete fname here?
+    free(node);
 }
 
 void im_tree_delete(im_tree *tree) {
