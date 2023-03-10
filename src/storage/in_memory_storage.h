@@ -13,12 +13,12 @@ typedef struct im_tree_node {
     size_t inode;  
     const char *fname;
  
-    struct im_tree_node *entries; 
+    struct im_tree_node **entries; 
     size_t entries_count;
 } im_tree_node;
 
 typedef struct im_tree {
-    im_tree_node root_node;
+    im_tree_node *root_node;
 } im_tree;
 
 typedef struct im_inode {

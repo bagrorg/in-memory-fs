@@ -165,7 +165,7 @@ int im_tree_add_entry(im_storage *st, const char *path, bool is_dir, size_t inod
             return -1;
         } 
         
-        im_tree_node *new_data = (im_tree_node *) realloc(parent->entries, (parent->entries_count + 1) * sizeof(im_tree_node));
+        im_tree_node **new_data = (im_tree_node **) realloc(parent->entries, (parent->entries_count + 1) * sizeof(im_tree_node *));
         if (new_data == NULL) {
             return -1;
         }
@@ -178,9 +178,18 @@ int im_tree_add_entry(im_storage *st, const char *path, bool is_dir, size_t inod
             .fname = basename_str,
             .obsolete = false
         };
+        im_tree_node *new_node = (im_tree_node *) malloc(sizeof(im_tree_node));         //TODO
+        *new_node = node;
+        
+        if (is_dir) {
+            new_node->entries = malloc(sizeof(im_tree_node *) * 2);
+            new_node->entries[0] = new_node;
+            new_node->entries[1] = parent;
+            new_node->entries_count = 2;
+        }
 
         parent->entries = new_data;
-        parent->entries[parent->entries_count] = node;
+        parent->entries[parent->entries_count] = new_node;
         parent->entries_count++;
     } else {
         return -1;
@@ -215,7 +224,7 @@ im_tree_node* im_tree_get_entry(im_storage *st, const char *path) {
     /////////////////////////
     // Traversing the tree //
     /////////////////////////
-    im_tree_node *cur = &st->_fstree.root_node;
+    im_tree_node *cur = st->_fstree.root_node;
 
     while (fname != NULL) {
         if (!cur->dir) {
@@ -223,11 +232,25 @@ im_tree_node* im_tree_get_entry(im_storage *st, const char *path) {
         }
         
         bool found = false;
-        for (size_t i = 0; i < cur->entries_count; i++) {
-            if (!cur->entries[i].obsolete && (strcmp(cur->entries[i].fname, fname) == 0)) {
-                cur = &cur->entries[i];
-                found = true;
-                break;
+        if (strcmp(fname, ".") == 0) {
+            if (cur->entries_count == 0) {
+                return NULL;
+            }
+            found = true;
+            cur = cur->entries[0];
+        } else if (strcmp(fname, "..") == 0) {
+            if (cur->entries_count < 2) {
+                return NULL;
+            }
+            found = true;
+            cur = cur->entries[1];
+        } else {
+            for (size_t i = 0; i < cur->entries_count; i++) {
+                if (!cur->entries[i]->obsolete && (strcmp(cur->entries[i]->fname, fname) == 0)) {
+                    cur = cur->entries[i];
+                    found = true;
+                    break;
+                }
             }
         }
 
@@ -247,7 +270,8 @@ bool im_tree_exists(im_storage *st, const char *path) {
 }
 
 im_tree im_tree_create() {
-    im_tree_node root = {
+    im_tree_node *root = malloc(sizeof(im_tree_node));
+    im_tree_node root_v = {
         .entries_count = 0,
         .entries = NULL,
         .fname = "",
@@ -255,6 +279,11 @@ im_tree im_tree_create() {
         .inode = 0,
         .obsolete = false,
     };
+    *root = root_v;
+    root->entries = malloc(sizeof(im_tree_node *) * 2);
+    root->entries_count = 2;
+    root->entries[0] = root;
+    root->entries[1] = root;
 
     im_tree tree = {
         .root_node = root, 
@@ -265,8 +294,9 @@ im_tree im_tree_create() {
 
 void im_tree_delete_node(im_tree_node *node) {
     if (node->dir) {
-        for (size_t i = 0; i < node->entries_count; i++) {
-            im_tree_delete_node(&node->entries[i]);
+        for (size_t i = 2; i < node->entries_count; i++) {
+            im_tree_delete_node(node->entries[i]);
+            free(node->entries[i]);
         }
         free(node->entries);
     }
@@ -275,5 +305,5 @@ void im_tree_delete_node(im_tree_node *node) {
 }
 
 void im_tree_delete(im_tree *tree) {
-    im_tree_delete_node(&tree->root_node); 
+    im_tree_delete_node(tree->root_node); 
 }

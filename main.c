@@ -130,7 +130,8 @@ int im_fuse_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t o
         return -ENOTDIR;
     }
     for (size_t i = 0; i < entry->entries_count; i++) {
-        if (filler(buf, entry->entries[i].fname, NULL, 0) != 0) {
+        if (filler(buf, entry->entries[i]->fname, NULL, 0) != 0) {
+
             return -ENOMEM;
         }
     }

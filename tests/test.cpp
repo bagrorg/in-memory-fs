@@ -113,11 +113,12 @@ TEST(STORAGE_TESTS, FAILURE_WRTIE_NULL) {
 TEST(STORAGE_TREE_TESTS, CREATE_TREE_TEST) {
     im_tree tree = im_tree_create();
 
-    ASSERT_EQ(tree.root_node.entries_count, 0);
-    ASSERT_EQ(tree.root_node.entries, nullptr);
-    ASSERT_EQ(tree.root_node.inode, 0);
-    ASSERT_EQ(tree.root_node.dir, true);
-    ASSERT_EQ(strcmp(tree.root_node.fname, ""), 0);
+    ASSERT_EQ(tree.root_node->entries_count, 2);
+    ASSERT_EQ(tree.root_node->entries[0], tree.root_node);
+    ASSERT_EQ(tree.root_node->entries[1], tree.root_node);
+    ASSERT_EQ(tree.root_node->inode, 0);
+    ASSERT_EQ(tree.root_node->dir, true);
+    ASSERT_EQ(strcmp(tree.root_node->fname, ""), 0);
 }
 
 TEST(STORAGE_TREE_TESTS, ADD_NODE_TEST) {
@@ -127,11 +128,13 @@ TEST(STORAGE_TREE_TESTS, ADD_NODE_TEST) {
 
     im_tree_add_entry(&st, "/hello.txt", dir, inode);
 
-    ASSERT_EQ(st._fstree.root_node.entries_count, 1);
-    ASSERT_EQ(st._fstree.root_node.entries[0].inode, 1);
-    ASSERT_EQ(st._fstree.root_node.entries[0].dir, false);
-    ASSERT_TRUE(strcmp(st._fstree.root_node.entries[0].fname, "hello.txt") == 0);
-    
+    ASSERT_EQ(st._fstree.root_node->entries_count, 3);
+    ASSERT_EQ(st._fstree.root_node->entries[2]->inode, 1);
+    ASSERT_EQ(st._fstree.root_node->entries[2]->dir, false);
+    ASSERT_TRUE(strcmp(st._fstree.root_node->entries[2]->fname, "hello.txt") == 0);
+   
+    ASSERT_EQ(st._fstree.root_node->entries[0], st._fstree.root_node);
+    ASSERT_EQ(st._fstree.root_node->entries[1], st._fstree.root_node);
     delete_im_storage(&st);
 }
 
@@ -144,24 +147,30 @@ TEST(STORAGE_TREE_TESTS, ADD_MORE_NODES_TEST) {
     im_tree_add_entry(&st, "/hello2.txt", false, 4);
 
 
-    ASSERT_EQ(st._fstree.root_node.entries_count, 3);
+    ASSERT_EQ(st._fstree.root_node->entries_count, 5);
 
-    ASSERT_EQ(st._fstree.root_node.entries[0].dir, true);
-    ASSERT_EQ(st._fstree.root_node.entries[0].inode, 1);
-    ASSERT_TRUE(strcmp(st._fstree.root_node.entries[0].fname, "home") == 0);
-    
-    ASSERT_EQ(st._fstree.root_node.entries[1].dir, true);
-    ASSERT_EQ(st._fstree.root_node.entries[1].inode, 2);
-    ASSERT_TRUE(strcmp(st._fstree.root_node.entries[1].fname, "usr") == 0);
+    ASSERT_EQ(st._fstree.root_node->entries[2]->dir, true);
+    ASSERT_EQ(st._fstree.root_node->entries[2]->inode, 1);
+    ASSERT_TRUE(strcmp(st._fstree.root_node->entries[2]->fname, "home") == 0);
+    ASSERT_EQ(st._fstree.root_node->entries[2]->entries_count, 2);
+    ASSERT_EQ(st._fstree.root_node->entries[2]->entries[0], st._fstree.root_node->entries[2]);
+    ASSERT_EQ(st._fstree.root_node->entries[2]->entries[1], st._fstree.root_node);
 
-    ASSERT_EQ(st._fstree.root_node.entries[2].dir, false);
-    ASSERT_EQ(st._fstree.root_node.entries[2].inode, 4);
-    ASSERT_TRUE(strcmp(st._fstree.root_node.entries[2].fname, "hello2.txt") == 0);
+    ASSERT_EQ(st._fstree.root_node->entries[3]->dir, true);
+    ASSERT_EQ(st._fstree.root_node->entries[3]->inode, 2);
+    ASSERT_TRUE(strcmp(st._fstree.root_node->entries[3]->fname, "usr") == 0);
+    ASSERT_EQ(st._fstree.root_node->entries[3]->entries_count, 3);
+    ASSERT_EQ(st._fstree.root_node->entries[3]->entries[0], st._fstree.root_node->entries[3]);
+    ASSERT_EQ(st._fstree.root_node->entries[3]->entries[1], st._fstree.root_node);
 
-    ASSERT_EQ(st._fstree.root_node.entries[1].entries_count, 1);
-    ASSERT_EQ(st._fstree.root_node.entries[1].entries[0].dir, false);
-    ASSERT_EQ(st._fstree.root_node.entries[1].entries[0].inode, 3);
-    ASSERT_TRUE(strcmp(st._fstree.root_node.entries[1].entries[0].fname, "hello.txt") == 0);
+    ASSERT_EQ(st._fstree.root_node->entries[4]->dir, false);
+    ASSERT_EQ(st._fstree.root_node->entries[4]->inode, 4);
+    ASSERT_TRUE(strcmp(st._fstree.root_node->entries[4]->fname, "hello2.txt") == 0);
+
+    ASSERT_EQ(st._fstree.root_node->entries[3]->entries_count, 3);
+    ASSERT_EQ(st._fstree.root_node->entries[3]->entries[2]->dir, false);
+    ASSERT_EQ(st._fstree.root_node->entries[3]->entries[2]->inode, 3);
+    ASSERT_TRUE(strcmp(st._fstree.root_node->entries[3]->entries[2]->fname, "hello.txt") == 0);
 
     delete_im_storage(&st);
 }
