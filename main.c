@@ -221,18 +221,22 @@ int im_fuse_rmdir(const char *path) {
     if (fsnode == NULL) {
         return -ENOENT;
     }
-
+    im_inode *node = get(st->inodes, fsnode->inode);
+    if (node == NULL) {
+        return -ENOENT;
+    }
 
     if (!fsnode->dir) {
         return -ENOTDIR;
     }
 
-    im_inode *node = get(st->inodes, fsnode->inode);
-
     if (node->_open > 0) {
         return -EBUSY;
     }
 
+    if (fsnode->entries_count > 2) {
+        return -ENOTEMPTY;
+    }
 
     im_tree_delete_node(fsnode, true);
     return 0;
@@ -344,6 +348,112 @@ int im_fuse_write(const char *path, const char *buf, size_t size, off_t offset,
     return im_write(node, buf, size, offset);
 }
 
+bool starts_with(const char *pre, const char *str) {
+    size_t lenpre = strlen(pre),
+           lenstr = strlen(str);
+    return lenstr < lenpre ? false : memcmp(pre, str, lenpre) == 0;
+}
+
+int last_dash_index(const char *str) {
+    for (size_t i = strlen(str) - 1; i >= 0; i--) {
+        if (str[i] == '/') {
+            return i;
+        }
+    }
+    return -1;
+}
+
+int im_fuse_rename(const char *path, const char *newpath) {
+    if (starts_with(path, newpath) || starts_with(newpath, path)) {
+        return -EINVAL;
+    }
+
+    im_tree_node* oldEntry = im_tree_get_entry(st, path);
+    if (path == "" || newpath == "" || oldEntry == NULL) {
+        return -ENOENT;
+    }
+    im_inode* oldNode = get(st->inodes, oldEntry->inode);
+    if (oldNode->_open > 0) {
+        return -EBUSY;
+    }
+
+    im_tree_node* newEntry = im_tree_get_entry(st, newpath);
+    im_inode* newNode = NULL;
+    if (newEntry != NULL) {
+        newNode = get(st->inodes, newEntry->inode);
+        if (newNode->_open > 0) {
+            return -EBUSY;
+        }
+    } else {
+        int last_dash = last_dash_index(newpath);
+        if (last_dash != -1) {
+            char* parent_path = malloc(last_dash);
+            memcpy(parent_path, newpath, last_dash);
+            im_tree_node* parent = im_tree_get_entry(st, parent_path);
+            if (parent == NULL || !parent->dir) {
+                return -ENOENT;
+            }
+        }
+    }
+
+    if (oldEntry->dir) {
+        if (newEntry != NULL && !newEntry->dir) {
+            return -ENOTDIR;
+        }
+
+        if (newEntry != NULL && newEntry->entries_count != 2) {
+            return -ENOTEMPTY;
+        }
+
+        if (newEntry == NULL) {
+            int createError = im_fuse_mkdir(newpath, 0);
+            if (createError != 0) {
+                return createError;
+            }
+            newEntry = im_tree_get_entry(st, newpath);
+            newNode = get(st->inodes, newEntry->inode);
+        }
+
+        while(oldEntry->entries_count > 2) {
+            im_tree_node *node = get(oldEntry->entries, 2);
+            push_back(newEntry->entries, node);
+            node->parent = newEntry;
+            erase(oldEntry->entries, 2);
+            oldEntry->entries_count--;
+            newEntry->entries_count++;
+        }
+    } else {
+        if (newEntry != NULL && newEntry->dir) {
+            return -EISDIR;
+        }
+
+        if (newEntry == NULL) {
+            int createError = im_fuse_mknod(newpath, 0, 0);
+            if (createError != 0) {
+                return createError;
+            }
+            newEntry = im_tree_get_entry(st, newpath);
+            newNode = get(st->inodes, newEntry->inode);
+        }
+
+        free(newNode->_data);
+        newNode->_data = malloc(oldNode->_capacity);
+        newNode->_capacity = oldNode->_capacity;
+        newNode->_stat.st_size = oldNode->_stat.st_size;
+        memcpy(newNode->_data, oldNode->_data, oldNode->_capacity);
+    }
+
+    im_tree_delete_node(oldEntry, true);
+    return 0;
+}
+
+int im_fuse_chmod(const char *path, mode_t mode) {
+    return 0;
+}
+
+int im_fuse_chown(const char *path, uid_t uid, gid_t gid) {
+    return 0;
+}
 
 struct fuse_operations bb_oper = {
     .mkdir = im_fuse_mkdir,
@@ -359,9 +469,13 @@ struct fuse_operations bb_oper = {
 
     .open = im_fuse_open,
     .read = im_fuse_read,
+    .rename = im_fuse_rename,
     .write = im_fuse_write,
     .release = im_fuse_release,
     .truncate = im_fuse_truncate,
+
+    .chmod = im_fuse_chmod,
+    .chown = im_fuse_chown,
 };
 
 int main(int argc, char **argv) {
