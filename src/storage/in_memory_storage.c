@@ -138,6 +138,7 @@ unsigned long im_create(im_storage *st) {
     // Create inode //
     //////////////////
     im_inode *inode = malloc(sizeof(im_inode));
+    if (inode == NULL) return -1;       // BAGRORG TODO???
 
     inode->_capacity = 0;
     inode->_stat.st_size = 0;
@@ -191,6 +192,8 @@ int im_tree_add_entry(im_storage *st, const char *path, bool is_dir, size_t inod
             .parent_id = parent->entries_count,
         };
         im_tree_node *new_node = (im_tree_node *) malloc(sizeof(im_tree_node));         //TODO
+        if (new_node == NULL) return -1;
+
         *new_node = node;
         
         if (is_dir) {
@@ -283,6 +286,8 @@ bool im_tree_exists(im_storage *st, const char *path) {
 
 int im_tree_create(im_tree *dest) {
     im_tree_node *root = malloc(sizeof(im_tree_node));
+    if (root == NULL) return -1;
+
     im_tree_node root_v = {
         .entries_count = 0,
         .entries = NULL,
