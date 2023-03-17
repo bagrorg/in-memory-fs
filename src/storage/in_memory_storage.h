@@ -42,7 +42,7 @@ typedef struct im_storage {
 
 
 void add_im_inode(im_storage *st, im_inode inode);
-im_storage create_im_storage();
+int create_im_storage(im_storage *dest);
 void delete_im_storage(im_storage *st);
 
 int im_write(im_inode *inode, const char *data, size_t size, size_t offset);
@@ -53,7 +53,7 @@ int im_tree_add_entry(im_storage *st, const char *path, bool is_dir, size_t inod
 im_tree_node* im_tree_get_entry(im_storage *st, const char *path);
 bool im_tree_exists(im_storage *st, const char *path);
 
-im_tree im_tree_create();
+int im_tree_create(im_tree *dest);
 void im_tree_delete(im_tree *tree);
 void im_tree_delete_node(im_tree_node *node, bool delete_from_parent);
 #endif

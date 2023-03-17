@@ -6,16 +6,24 @@
 #include <libgen.h>
 #include <errno.h>
 
-im_storage create_im_storage() {
-    im_storage st;
-    st._cur = 0;
-    st._fstree = im_tree_create();
-    st.inodes = create_list();
-    im_create(&st);
+int create_im_storage(im_storage *dest) {
+    dest->_cur = 0;
+    if (im_tree_create(&dest->_fstree)) {
+        return -1; 
+    }
+    if (create_list(&dest->inodes)) {
+        im_tree_delete(&dest->_fstree);
+        return -1; 
+    }
+    if (im_create(dest) != 0) {
+        return -1;
+    }
     
-    im_inode *root = get(st.inodes, 0);
+    im_inode *root = get(dest->inodes, 0);
+    if (root == NULL) return -1;
+
     root->_stat.st_mode = S_IFDIR;
-    return st;
+    return 0;
 }
 
 void delete_im_storage(im_storage *st) {
@@ -186,7 +194,7 @@ int im_tree_add_entry(im_storage *st, const char *path, bool is_dir, size_t inod
         *new_node = node;
         
         if (is_dir) {
-            new_node->entries = create_list();
+            if (create_list(&new_node->entries)) return -1;
             push_back(new_node->entries, new_node);
             push_back(new_node->entries, parent);
             new_node->entries_count = 2;
@@ -273,7 +281,7 @@ bool im_tree_exists(im_storage *st, const char *path) {
     return (im_tree_get_entry(st, path) != NULL);
 }
 
-im_tree im_tree_create() {
+int im_tree_create(im_tree *dest) {
     im_tree_node *root = malloc(sizeof(im_tree_node));
     im_tree_node root_v = {
         .entries_count = 0,
@@ -283,7 +291,8 @@ im_tree im_tree_create() {
         .inode = 0,
     };
     *root = root_v;
-    root->entries = create_list();
+    if (create_list(&root->entries)) return -1;
+
     root->entries_count = 2;
     push_back(root->entries, root); 
     push_back(root->entries, root);
@@ -292,7 +301,9 @@ im_tree im_tree_create() {
         .root_node = root, 
     };
 
-    return tree;
+    *dest = tree;
+
+    return 0;
 }
 
 void im_tree_delete_node(im_tree_node *node, bool delete_from_parent) {
