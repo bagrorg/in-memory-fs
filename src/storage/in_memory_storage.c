@@ -287,7 +287,7 @@ im_tree_node* im_tree_get_entry(im_storage *st, const char *path) {
             found = true;
             cur = get(cur->entries, 1);
         } else {
-            for (size_t i = 0; i < cur->entries_count; i++) {
+            for (size_t i = 2; i < cur->entries_count; i++) {
                 im_tree_node *next = get(cur->entries, i);
                 if (strcmp(next->fname, fname) == 0) {
                     cur = next;
