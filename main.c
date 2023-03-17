@@ -479,6 +479,7 @@ struct fuse_operations bb_oper = {
     .chown = im_fuse_chown,
 };
 
+
 int main(int argc, char **argv) {
     fp = fopen("logs.txt", "w+");
 
