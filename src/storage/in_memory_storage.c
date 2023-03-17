@@ -342,18 +342,19 @@ int im_tree_create(im_tree *dest) {
 
 void im_tree_delete_node(im_tree_node *node, bool delete_from_parent) {
     if (node->dir) {
-        im_tree_node *cur;
-        erase(node->entries, 0);
-        erase(node->entries, 0);
+        im_tree_node *cur; 
 
-        while ((cur = get(node->entries, 0)) != NULL) {
+        while ((cur = get(node->entries, 2)) != NULL) {
             im_tree_delete_node(cur, true);
         }
+
+        erase(node->entries, 0);
+        erase(node->entries, 0);
         delete_list(node->entries);
     }
 
     if (delete_from_parent) {
-        for (size_t i = 0; i < node->parent->entries_count; i++) {
+        for (size_t i = 2; i < node->parent->entries_count; i++) {
             im_tree_node *pnode = get(node->parent->entries, i);
             if (strcmp(pnode->fname, node->fname) == 0) {
                 erase(node->parent->entries, i);
