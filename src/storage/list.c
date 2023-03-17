@@ -23,6 +23,7 @@ int push_back(list l, void *data) {
     l.dummy->prev->next = new_node;
     l.dummy->prev = new_node;
     new_node->next = l.dummy;
+    return 0;
 }
 
 void *get(list l, size_t i) {
@@ -63,3 +64,14 @@ void delete_list(list l) {
 
     free(l.dummy);
 }
+
+node *begin(list l) {
+    return l.dummy->next;
+}
+
+node *end(list l) {
+    return l.dummy;
+}
+
+
+
