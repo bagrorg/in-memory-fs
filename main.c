@@ -85,10 +85,6 @@ int im_fuse_getattr(const char *path, struct stat *statbuf) {
         return -ENOENT;
     }
 
-    if (fsnode->obsolete) {
-        return -ENOENT;
-    }
-
     size_t id = fsnode->inode;
 
     if (id != -1) {
@@ -106,7 +102,7 @@ int im_fuse_opendir(const char *path, struct fuse_file_info *fi) {
     fflush(fp);
 
     im_tree_node* entry = im_tree_get_entry(st, path);
-    if (entry == NULL || entry->inode == -1 || entry->obsolete) {
+    if (entry == NULL || entry->inode == -1) {
         return -ENOENT;
     } 
     im_inode *node = get(st->inodes, entry->inode);
@@ -139,9 +135,6 @@ int im_fuse_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t o
     }
 
     im_tree_node* entry = im_tree_get_entry(st, path);
-    if (entry->obsolete) {
-        return -EBADF;
-    }
 
     if (!entry->dir) {
         return -ENOTDIR;
@@ -155,11 +148,7 @@ int im_fuse_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t o
         return -ENOMEM;
     }
 
-    for (size_t i = 2; i < entry->entries_count; i++) {
-        if (entry->entries[i]->obsolete) {
-            continue;
-        }
-        
+    for (size_t i = 2; i < entry->entries_count; i++) { 
         im_tree_node *node = get(entry->entries, i);
         if (filler(buf, node->fname, NULL, 0) != 0) {
             return -ENOMEM;
@@ -205,9 +194,6 @@ int im_fuse_unlink(const char *path) {
         return -ENOENT;
     }
 
-    if (fsnode->obsolete) {
-        return -ENOENT;
-    }
 
     if (fsnode->dir) {
         return -EISDIR;
@@ -236,9 +222,6 @@ int im_fuse_rmdir(const char *path) {
         return -ENOENT;
     }
 
-    if (fsnode->obsolete) {
-        return -ENOENT;
-    }
 
     if (!fsnode->dir) {
         return -ENOTDIR;
@@ -265,7 +248,7 @@ int im_fuse_truncate(const char *path, off_t newsize) {
     im_tree_node *fsnode = im_tree_get_entry(st, path); 
     size_t node_id = -1;
     im_inode *node;
-    if (fsnode == NULL || fsnode->obsolete) {
+    if (fsnode == NULL) {
         node_id = im_create(st);
         node = get(st->inodes, node_id);
         node->_path = path;
@@ -321,9 +304,6 @@ int im_fuse_open(const char *path, struct fuse_file_info *fi) {
         return -ENOENT;
     }
 
-    if (fsnode->obsolete) {
-        return -ENOENT;
-    }
 
     im_inode *node = get(st->inodes, fsnode->inode);
     if (node->_stat.st_mode & S_IFDIR) {
