@@ -129,7 +129,6 @@ unsigned long im_create(im_storage *st) {
     //////////////////
     // Create inode //
     //////////////////
-
     im_inode *inode = malloc(sizeof(im_inode));
 
     inode->_capacity = 0;
