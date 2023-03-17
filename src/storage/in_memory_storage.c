@@ -309,8 +309,14 @@ void im_tree_delete_node(im_tree_node *node, bool delete_from_parent) {
     }
 
     if (delete_from_parent) {
-        erase(node->parent->entries, node->parent_id);
-        node->parent->entries_count--; 
+        for (size_t i = 0; i < node->parent->entries_count; i++) {
+            im_tree_node *pnode = get(node->parent->entries, i);
+            if (strcmp(pnode->fname, node->fname) == 0) {
+                erase(node->parent->entries, i);
+                node->parent->entries_count--;
+                break;
+            }
+        }
     }
     free(node);
 }
