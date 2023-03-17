@@ -133,6 +133,7 @@ unsigned long im_create(im_storage *st) {
     inode._stat.st_size = 0;
     inode._stat.st_ino = st->_cur;
     inode._data = NULL;
+    inode._open = 0;
 
     add_im_inode(st, inode);
 

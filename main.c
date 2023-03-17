@@ -83,10 +83,15 @@ int im_fuse_getattr(const char *path, struct stat *statbuf) {
     if (fsnode == NULL) {
         return -ENOENT;
     }
+
+    if (fsnode->obsolete) {
+        return -ENOENT;
+    }
+
     size_t id = fsnode->inode;
 
     if (id != -1) {
-        *statbuf = st->_inodes[id]._stat;   
+        *statbuf = st->_inodes[id]._stat;
         return 0; 
     }
 
@@ -99,7 +104,7 @@ int im_fuse_opendir(const char *path, struct fuse_file_info *fi) {
     fflush(fp);
 
     im_tree_node* entry = im_tree_get_entry(st, path);
-    if (entry == NULL || entry->inode == -1) {
+    if (entry == NULL || entry->inode == -1 || entry->obsolete) {
         return -ENOENT;
     }
 
@@ -108,7 +113,6 @@ int im_fuse_opendir(const char *path, struct fuse_file_info *fi) {
     }
 
     st->_inodes[entry->inode]._open++;
-
     fi->fh = entry->inode;
 
     return 0;
@@ -132,6 +136,10 @@ int im_fuse_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t o
     }
 
     im_tree_node* entry = im_tree_get_entry(st, path);
+    if (entry->obsolete) {
+        return -EBADF;
+    }
+
     if (!entry->dir) {
         return -ENOTDIR;
     }
@@ -145,6 +153,9 @@ int im_fuse_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t o
     }
 
     for (size_t i = 2; i < entry->entries_count; i++) {
+        if (entry->entries[i]->obsolete) {
+            continue;
+        }
         if (filler(buf, entry->entries[i]->fname, NULL, 0) != 0) {
 
             return -ENOMEM;
@@ -188,6 +199,10 @@ int im_fuse_unlink(const char *path) {
         return -ENOENT;
     }
 
+    if (fsnode->obsolete) {
+        return -ENOENT;
+    }
+
     if (fsnode->dir) {
         return -EISDIR;
     }
@@ -213,16 +228,16 @@ int im_fuse_rmdir(const char *path) {
         return -ENOENT;
     }
 
+    if (fsnode->obsolete) {
+        return -ENOENT;
+    }
+
     if (!fsnode->dir) {
         return -ENOTDIR;
     }
 
     if (st->_inodes[fsnode->inode]._open > 0) {
         return -EBUSY;
-    }
-
-    if (fsnode->entries_count != 0) {
-        return -ENOTEMPTY;
     }
 
     im_tree_delete_node(fsnode);
@@ -238,7 +253,7 @@ int im_fuse_truncate(const char *path, off_t newsize) {
 
     im_tree_node *fsnode = im_tree_get_entry(st, path); 
     size_t node_id = -1;
-    if (fsnode == NULL) {
+    if (fsnode == NULL || fsnode->obsolete) {
         node_id = im_create(st);
         st->_inodes[node_id]._path = path;
     } else if (fsnode->dir) {
@@ -269,8 +284,8 @@ int im_fuse_release(const char *path, struct fuse_file_info *fi) {
     }
 
     int node_id = fi->fh;
-    if (!(st->_inodes[node_id]._stat.st_mode & S_IFDIR)) {
-        return -ENOTDIR;
+    if (st->_inodes[node_id]._stat.st_mode & S_IFDIR) {
+        return -EISDIR;
     }
 
     if (st->_inodes[node_id]._open == 0) {
@@ -287,6 +302,10 @@ int im_fuse_open(const char *path, struct fuse_file_info *fi) {
     fflush(fp);
     im_tree_node *fsnode = im_tree_get_entry(st, path); 
     if (fsnode == NULL || fsnode->inode == -1) {
+        return -ENOENT;
+    }
+
+    if (fsnode->obsolete) {
         return -ENOENT;
     }
 
