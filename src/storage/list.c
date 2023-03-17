@@ -2,21 +2,28 @@
 
 #include <stdlib.h>
 
-list create_list() {
-    list l;
-    l.dummy = malloc(sizeof(node));
-    l.dummy->next = l.dummy;
-    l.dummy->prev = l.dummy;
-    return l;
+int create_list(list *dest) {
+    dest->dummy = malloc(sizeof(node));
+    if (dest->dummy == NULL) {
+        return -1; 
+    }
+
+    dest->dummy->next = dest->dummy;
+    dest->dummy->prev = dest->dummy;
+    return 0;
 }
 
-void push_back(list l, void *data) {
+int push_back(list l, void *data) {
     node *new_node = malloc(sizeof(node));
+    if (new_node == NULL) {
+        return -1;
+    }
     new_node->data = data;
     new_node->prev = l.dummy->prev;
     l.dummy->prev->next = new_node;
     l.dummy->prev = new_node;
     new_node->next = l.dummy;
+    return 0;
 }
 
 void *get(list l, size_t i) {
@@ -57,3 +64,14 @@ void delete_list(list l) {
 
     free(l.dummy);
 }
+
+node *begin(list l) {
+    return l.dummy->next;
+}
+
+node *end(list l) {
+    return l.dummy;
+}
+
+
+

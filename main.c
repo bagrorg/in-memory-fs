@@ -482,7 +482,9 @@ int main(int argc, char **argv) {
     fp = fopen("logs.txt", "w+");
 
     st = malloc(sizeof(im_storage));
-    *st = create_im_storage();
+    if (create_im_storage(st)) {
+        printf("Can't create storage");
+    }
 
     printf("Started\n");
     fuse_main(argc, argv, &bb_oper, NULL);

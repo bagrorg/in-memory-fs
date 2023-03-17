@@ -3,6 +3,7 @@
 #include <cstring>
 #include <gtest/gtest-death-test.h>
 #include <gtest/gtest.h>
+#include <stdexcept>
 #include <string>
 
 extern "C" {
@@ -10,6 +11,23 @@ extern "C" {
     #include "../src/storage/list.h"
 }
 
+im_storage create_im_storage() {
+    im_storage st;
+    if (create_im_storage(&st)) throw std::runtime_error("Cant create storage");
+    return st;
+}
+
+im_tree im_tree_create() {
+    im_tree tree;
+    if (im_tree_create(&tree)) throw std::runtime_error("Cant create tree");
+    return tree;
+}
+
+list create_list() {
+    list l;
+    if (create_list(&l)) throw std::runtime_error("Cant create list");
+    return l;
+}
 
 TEST(STORAGE_TESTS, CREATION_DELETION) {
     im_storage st = create_im_storage();
