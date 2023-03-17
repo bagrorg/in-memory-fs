@@ -30,14 +30,14 @@ int im_fuse_mkdir(const char *path, mode_t mode) {
         if (node_id == -1) {
             return -1;
         }
-        
-        st->_inodes[node_id]._path = path;
-        st->_inodes[node_id]._stat.st_mode = mode | S_IFDIR;
-        st->_inodes[node_id]._stat.st_gid =fuse_get_context()->gid;
-        st->_inodes[node_id]._stat.st_uid =fuse_get_context()->uid;
-        st->_inodes[node_id]._open = 0; 
+        im_inode *node = get(st->inodes, node_id);
+        node->_path = path;
+        node->_stat.st_mode = mode | S_IFDIR;
+        node->_stat.st_gid =fuse_get_context()->gid;
+        node->_stat.st_uid =fuse_get_context()->uid;
+        node->_open = 0; 
 
-        im_tree_add_entry(st, path, true, node_id); 
+        im_tree_add_entry(st, path, true, node_id);             /// BAGRORG TODO
 
         return 0; 
     }
@@ -50,15 +50,16 @@ int im_fuse_mknod(const char *path, mode_t mode, dev_t dev) {
 	  path, mode, dev);
     fflush(fp);
     if (!im_tree_exists(st, path)) {
-        unsigned long node_id = im_create(st);
-
-        st->_inodes[node_id]._path = path;
-        st->_inodes[node_id]._stat.st_mode = mode | S_IFREG;
-        st->_inodes[node_id]._stat.st_gid =fuse_get_context()->gid;
-        st->_inodes[node_id]._stat.st_uid =fuse_get_context()->uid;
-        st->_inodes[node_id]._open = 0;
+        unsigned long node_id = im_create(st); 
+        im_inode *node = get(st->inodes, node_id);
         
-        im_tree_add_entry(st, path, false, node_id);
+        node->_path = path;
+        node->_stat.st_mode = mode | S_IFREG;
+        node->_stat.st_gid =fuse_get_context()->gid;
+        node->_stat.st_uid =fuse_get_context()->uid;
+        node->_open = 0;
+        
+        im_tree_add_entry(st, path, false, node_id);        // BAGRORG TODO
 
         // TODO ADD PARENT AND AT MKDIR
         //
@@ -86,7 +87,8 @@ int im_fuse_getattr(const char *path, struct stat *statbuf) {
     size_t id = fsnode->inode;
 
     if (id != -1) {
-        *statbuf = st->_inodes[id]._stat;   
+        im_inode *node = get(st->inodes, id);
+        *statbuf = node->_stat;   
         return 0; 
     }
 
@@ -101,13 +103,14 @@ int im_fuse_opendir(const char *path, struct fuse_file_info *fi) {
     im_tree_node* entry = im_tree_get_entry(st, path);
     if (entry == NULL || entry->inode == -1) {
         return -ENOENT;
-    }
+    } 
+    im_inode *node = get(st->inodes, entry->inode);
 
-    if (!(st->_inodes[entry->inode]._stat.st_mode & S_IFDIR)) {
+    if (!(node->_stat.st_mode & S_IFDIR)) {
         return -ENOTDIR;
     }
 
-    st->_inodes[entry->inode]._open++;
+    node->_open++;
 
     fi->fh = entry->inode;
 
@@ -145,8 +148,8 @@ int im_fuse_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t o
     }
 
     for (size_t i = 2; i < entry->entries_count; i++) {
-        if (filler(buf, entry->entries[i]->fname, NULL, 0) != 0) {
-
+        im_tree_node *node = get(entry->entries, i);
+        if (filler(buf, node->fname, NULL, 0) != 0) {
             return -ENOMEM;
         }
     }
@@ -163,15 +166,17 @@ int im_fuse_releasedir(const char *path, struct fuse_file_info *fi) {
     if (node_id == -1) {
         return -ENOENT;
     }
-    if (!(st->_inodes[node_id]._stat.st_mode & S_IFDIR)) {
+    im_inode *node = get(st->inodes, node_id);
+
+    if (!(node->_stat.st_mode & S_IFDIR)) {
         return -ENOTDIR;
     }
 
-    if (st->_inodes[node_id]._open == 0) {
+    if (node->_open == 0) {
         return -EBADF;
     }
 
-    st->_inodes[node_id]._open--;
+    node->_open--;
 
     return 0;
 }
@@ -191,12 +196,14 @@ int im_fuse_unlink(const char *path) {
     if (fsnode->dir) {
         return -EISDIR;
     }
+    
+    im_inode *node = get(st->inodes, fsnode->inode);
 
-    if (st->_inodes[fsnode->inode]._open > 0) {
+    if (node->_open > 0) {
         return -EBUSY;
     }
 
-    im_tree_delete_node(fsnode);
+    im_tree_delete_node(fsnode, true);
     return 0;
     
 }
@@ -217,7 +224,9 @@ int im_fuse_rmdir(const char *path) {
         return -ENOTDIR;
     }
 
-    if (st->_inodes[fsnode->inode]._open > 0) {
+    im_inode *node = get(st->inodes, fsnode->inode);
+
+    if (node->_open > 0) {
         return -EBUSY;
     }
 
@@ -225,7 +234,7 @@ int im_fuse_rmdir(const char *path) {
         return -ENOTEMPTY;
     }
 
-    im_tree_delete_node(fsnode);
+    im_tree_delete_node(fsnode, true);
     return 0;
 }
 
@@ -237,24 +246,27 @@ int im_fuse_truncate(const char *path, off_t newsize) {
     fflush(fp);
 
     im_tree_node *fsnode = im_tree_get_entry(st, path); 
-    size_t node_id = -1;
+    size_t node_id = -1; 
+    im_inode *node;
     if (fsnode == NULL) {
         node_id = im_create(st);
-        st->_inodes[node_id]._path = path;
+        node = get(st->inodes, node_id);
+        node->_path = path;
     } else if (fsnode->dir) {
         return -EISDIR;
     } else {
-        node_id = fsnode->inode;
+        node_id = fsnode->inode; 
+        node = get(st->inodes, node_id);
     }
 
-    if (st->_inodes[node_id]._capacity >= newsize) {
-        st->_inodes[node_id]._capacity = newsize;
+    if (node->_capacity >= newsize) {
+        node->_capacity = newsize;
     } else {
-        st->_inodes[node_id]._capacity = newsize;
+        node->_capacity = newsize;
         char* new_data = calloc(newsize, sizeof(char));
-        memcpy(new_data, st->_inodes[node_id]._data, st->_inodes[node_id]._capacity);
-        free(st->_inodes[node_id]._data);
-        st->_inodes[node_id]._data = new_data;
+        memcpy(new_data, node->_data, node->_capacity);
+        free(node->_data);
+        node->_data = new_data;
     }
 
     return 0;
@@ -269,15 +281,17 @@ int im_fuse_release(const char *path, struct fuse_file_info *fi) {
     }
 
     int node_id = fi->fh;
-    if (!(st->_inodes[node_id]._stat.st_mode & S_IFDIR)) {
+    im_inode *node = get(st->inodes, node_id);
+
+    if (!(node->_stat.st_mode & S_IFDIR)) {
         return -ENOTDIR;
     }
 
-    if (st->_inodes[node_id]._open == 0) {
+    if (node->_open == 0) {
         return -EBADF;
     }
 
-    st->_inodes[node_id]._open--;
+    node->_open--;
     return 0;
 }
 
@@ -290,11 +304,12 @@ int im_fuse_open(const char *path, struct fuse_file_info *fi) {
         return -ENOENT;
     }
 
-    if (st->_inodes[fsnode->inode]._stat.st_mode & S_IFDIR) {
+    im_inode *node = get(st->inodes, fsnode->inode);
+    if (node->_stat.st_mode & S_IFDIR) {
         return -EISDIR;
     }
 
-    st->_inodes[fsnode->inode]._open++;
+    node->_open++;
     fi->fh = fsnode->inode;              
     return 0;
 }
@@ -304,11 +319,13 @@ int im_fuse_read(const char *path, char *buf, size_t size, off_t offset, struct 
     fprintf(fp, "\nim_read(path=\"%s\", size=%ld, offset=%ld)\n", path, size, offset);
     fflush(fp);
     size_t node_id = fi->fh;
-    if (node_id == -1 || st->_inodes[node_id]._open == 0) {
+
+    im_inode *node = get(st->inodes, node_id);
+    if (node_id == -1 || node->_open == 0) {
         return -EBADF;
     }
 
-    return im_read(&st->_inodes[node_id], buf, size, offset);
+    return im_read(node, buf, size, offset);
 }
 
 /** Write data to an open file */
@@ -318,10 +335,12 @@ int im_fuse_write(const char *path, const char *buf, size_t size, off_t offset,
 	    path, size, offset);
     fflush(fp);
     size_t node_id = fi->fh;
-    if (node_id == -1 || st->_inodes[node_id]._open == 0) {
+    im_inode *node = get(st->inodes, node_id);
+
+    if (node_id == -1 || node->_open == 0) {
         return -EBADF;
     }
-    return im_write(&st->_inodes[node_id], buf, size, offset);
+    return im_write(node, buf, size, offset);
 }
 
 
