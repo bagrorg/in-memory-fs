@@ -283,8 +283,8 @@ int im_fuse_release(const char *path, struct fuse_file_info *fi) {
     int node_id = fi->fh;
     im_inode *node = get(st->inodes, node_id);
 
-    if (!(node->_stat.st_mode & S_IFDIR)) {
-        return -ENOTDIR;
+    if (node->_stat.st_mode & S_IFDIR) {
+        return -EISDIR;
     }
 
     if (node->_open == 0) {
