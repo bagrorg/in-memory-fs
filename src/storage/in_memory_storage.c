@@ -137,17 +137,22 @@ unsigned long im_create(im_storage *st) {
     //////////////////
     // Create inode //
     //////////////////
-    im_inode *inode = malloc(sizeof(im_inode));
-    if (inode == NULL) return -1;       // BAGRORG TODO???
+    im_inode *new_inode = malloc(sizeof(im_inode));
+    if (new_inode == NULL) return -1;       // BAGRORG TODO???
 
-    inode->_capacity = 0;
-    inode->_stat.st_size = 0;
-    inode->_stat.st_ino = st->_cur++;
-    inode->_data = NULL;
+    im_inode inode = {
+        ._capacity = 0,
+        ._stat.st_size = 0,
+        ._stat.st_ino = st->_cur++,
+        ._data = NULL,
+        ._open = 0,
+    };
+
+    *new_inode = inode;
     
-    push_back(st->inodes, inode);
+    push_back(st->inodes, new_inode);
 
-    return inode->_stat.st_ino;
+    return new_inode->_stat.st_ino;
 }
 
 int im_tree_add_entry(im_storage *st, const char *path, bool is_dir, size_t inode) {
@@ -159,6 +164,8 @@ int im_tree_add_entry(im_storage *st, const char *path, bool is_dir, size_t inod
     assert(node != NULL);
     assert(path != NULL);
     #endif
+    int ret = 0;
+
     if (im_tree_exists(st, path)) {
         return -1; //TODO
     }
@@ -166,7 +173,8 @@ int im_tree_add_entry(im_storage *st, const char *path, bool is_dir, size_t inod
     char *basename_cpy = strdup(path);  
     char *dirname_cpy = strdup(path);
     if (dirname_cpy == NULL || basename_cpy == NULL) {
-        return -1; //TODO
+        ret = -1;
+        goto func_exit;
     }
 
     char *dirname_str = dirname(dirname_cpy);
@@ -180,24 +188,37 @@ int im_tree_add_entry(im_storage *st, const char *path, bool is_dir, size_t inod
     ///////////////////////////////////////
     if (parent != NULL) {
         if (!parent->dir) {
-            return -1;
+            ret = -1;
+            goto func_exit;
         } 
-         
+        char *fname = strdup(basename_str);
+        if (fname == NULL) {
+            ret = -1;
+            goto func_exit;
+        }
+
         im_tree_node node = {
             .dir = is_dir,
             .inode = inode,
             .entries_count = 0,
-            .fname = basename_str,
+            .fname = fname,
             .parent = parent,
             .parent_id = parent->entries_count,
         };
         im_tree_node *new_node = (im_tree_node *) malloc(sizeof(im_tree_node));         //TODO
-        if (new_node == NULL) return -1;
+        if (new_node == NULL) {
+            ret = -1;
+            goto func_exit;
+        }
 
         *new_node = node;
         
         if (is_dir) {
-            if (create_list(&new_node->entries)) return -1;
+            if (create_list(&new_node->entries)) {
+                free(new_node);
+                ret = -1;
+                goto func_exit;
+            }
             push_back(new_node->entries, new_node);
             push_back(new_node->entries, parent);
             new_node->entries_count = 2;
@@ -206,10 +227,14 @@ int im_tree_add_entry(im_storage *st, const char *path, bool is_dir, size_t inod
         push_back(parent->entries, new_node);
         parent->entries_count++;
     } else {
-        return -1;
+        ret = -1;
+        goto func_exit;
     }
 
-    return 0;
+func_exit:
+    free(basename_cpy);
+    free(dirname_cpy);
+    return ret;
 }
 
 im_tree_node* im_tree_get_entry(im_storage *st, const char *path) {
@@ -242,18 +267,21 @@ im_tree_node* im_tree_get_entry(im_storage *st, const char *path) {
 
     while (fname != NULL) {
         if (!cur->dir) {
+            free(path_tmp);
             return NULL;
         }
         
         bool found = false;
         if (strcmp(fname, ".") == 0) {
             if (cur->entries_count == 0) {
+                free(path_tmp);
                 return NULL;
             }
             found = true;
             cur = get(cur->entries, 0);
         } else if (strcmp(fname, "..") == 0) {
             if (cur->entries_count < 2) {
+                free(path_tmp);
                 return NULL;
             }
             found = true;
@@ -270,6 +298,7 @@ im_tree_node* im_tree_get_entry(im_storage *st, const char *path) {
         }
 
         if (cur == NULL || !found) {
+            free(path_tmp);
             return NULL;
         }
 
@@ -291,7 +320,7 @@ int im_tree_create(im_tree *dest) {
     im_tree_node root_v = {
         .entries_count = 0,
         .entries = NULL,
-        .fname = "",
+        .fname = strdup(""),
         .dir = true,
         .inode = 0,
     };
@@ -333,6 +362,7 @@ void im_tree_delete_node(im_tree_node *node, bool delete_from_parent) {
             }
         }
     }
+    free(node->fname);
     free(node);
 }
 
