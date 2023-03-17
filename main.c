@@ -387,8 +387,9 @@ int im_fuse_rename(const char *path, const char *newpath) {
     } else {
         int last_dash = last_dash_index(newpath);
         if (last_dash != -1) {
-            char* parent_path = malloc(last_dash);
+            char* parent_path = malloc(last_dash + 1);
             memcpy(parent_path, newpath, last_dash);
+            parent_path[last_dash] = '\0';
             im_tree_node* parent = im_tree_get_entry(st, parent_path);
             if (parent == NULL || !parent->dir) {
                 return -ENOENT;
