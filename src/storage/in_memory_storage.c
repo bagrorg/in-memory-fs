@@ -38,10 +38,11 @@ void delete_im_storage(im_storage *st) {
     //////////////////////////////
     // Free data for all inodes //
     //////////////////////////////
-    for (size_t i = 0; i < st->_cur; i++) {
-        im_inode *cur = get(st->inodes, i);
-        free(cur->_data);
-        free(cur);
+    im_inode *it;
+    while ((it = get(st->inodes, 0)) != NULL) {
+        erase(st->inodes, 0);
+        free(it->_data);
+        free(it);
     }
 
     im_tree_delete(&st->_fstree);
@@ -287,8 +288,9 @@ im_tree_node* im_tree_get_entry(im_storage *st, const char *path) {
             found = true;
             cur = get(cur->entries, 1);
         } else {
-            for (size_t i = 0; i < cur->entries_count; i++) {
-                im_tree_node *next = get(cur->entries, i);
+            // next->next because two first ones are . and ..
+            for (node *i = begin(cur->entries)->next->next; i != end(cur->entries); i = i->next) {
+                im_tree_node *next = i->data;
                 if (strcmp(next->fname, fname) == 0) {
                     cur = next;
                     found = true;
@@ -340,30 +342,32 @@ int im_tree_create(im_tree *dest) {
     return 0;
 }
 
-void im_tree_delete_node(im_tree_node *node, bool delete_from_parent) {
-    if (node->dir) {
+void im_tree_delete_node(im_tree_node *tnode, bool delete_from_parent) {
+    if (tnode->dir) {
         im_tree_node *cur;
-        erase(node->entries, 0);
-        erase(node->entries, 0);
+        erase(tnode->entries, 0);
+        erase(tnode->entries, 0);
 
-        while ((cur = get(node->entries, 0)) != NULL) {
+        while ((cur = get(tnode->entries, 0)) != NULL) {
             im_tree_delete_node(cur, true);
         }
-        delete_list(node->entries);
+        delete_list(tnode->entries);
     }
 
     if (delete_from_parent) {
-        for (size_t i = 0; i < node->parent->entries_count; i++) {
-            im_tree_node *pnode = get(node->parent->entries, i);
-            if (strcmp(pnode->fname, node->fname) == 0) {
-                erase(node->parent->entries, i);
-                node->parent->entries_count--;
+        size_t id = 2;
+        for (node *i = begin(tnode->parent->entries)->next->next; i != end(tnode->parent->entries); i = i->next) {
+            im_tree_node *pnode = i->data;
+            if (strcmp(pnode->fname, tnode->fname) == 0) {
+                erase(tnode->parent->entries, id);
+                tnode->parent->entries_count--;
                 break;
             }
+            id++;
         }
     }
-    free(node->fname);
-    free(node);
+    free(tnode->fname);
+    free(tnode);
 }
 
 void im_tree_delete(im_tree *tree) {

@@ -10,6 +10,7 @@ int create_list(list *dest) {
 
     dest->dummy->next = dest->dummy;
     dest->dummy->prev = dest->dummy;
+    dest->dummy->data = NULL;
     return 0;
 }
 
