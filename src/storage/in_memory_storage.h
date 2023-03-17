@@ -9,7 +9,7 @@
 typedef struct im_tree_node {
     bool dir;
     size_t inode;  
-    const char *fname;
+    char *fname;
  
     list entries; 
     size_t entries_count;
