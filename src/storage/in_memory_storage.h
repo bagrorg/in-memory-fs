@@ -4,17 +4,18 @@
 #include <sys/stat.h>
 #include <stddef.h>
 #include <stdbool.h>
-
-#define INODES_SIZE 1024
+#include "list.h"
 
 typedef struct im_tree_node {
-    bool obsolete;
     bool dir;
     size_t inode;  
     const char *fname;
  
-    struct im_tree_node **entries; 
+    list entries; 
     size_t entries_count;
+
+    struct im_tree_node *parent;
+    size_t parent_id;
 } im_tree_node;
 
 typedef struct im_tree {
@@ -34,7 +35,7 @@ typedef struct im_storage {
     // We can use fi->fh as pointer and just set it to proper im_inode
     // more info here: https://www.cs.hmc.edu/~geoff/classes/hmc.cs135.201109/homework/fuse/fuse_doc.html
     // at 'FUSE File Handles'
-    im_inode _inodes[INODES_SIZE];
+    list inodes;
     size_t _cur;
     im_tree _fstree;
 } im_storage;
@@ -54,5 +55,5 @@ bool im_tree_exists(im_storage *st, const char *path);
 
 im_tree im_tree_create();
 void im_tree_delete(im_tree *tree);
-void im_tree_delete_node(im_tree_node *node);
+void im_tree_delete_node(im_tree_node *node, bool delete_from_parent);
 #endif

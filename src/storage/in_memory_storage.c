@@ -1,21 +1,20 @@
 #include "in_memory_storage.h"
+#include "list.h"
 
 #include <stdlib.h>
 #include <string.h>
 #include <libgen.h>
 #include <errno.h>
 
-void add_im_inode(im_storage *st, im_inode inode) {
-    st->_inodes[st->_cur] = inode;
-    st->_cur++;
-}
-
 im_storage create_im_storage() {
     im_storage st;
     st._cur = 0;
     st._fstree = im_tree_create();
+    st.inodes = create_list();
     im_create(&st);
-    st._inodes[0]._stat.st_mode = S_IFDIR;
+    
+    im_inode *root = get(st.inodes, 0);
+    root->_stat.st_mode = S_IFDIR;
     return st;
 }
 
@@ -32,11 +31,13 @@ void delete_im_storage(im_storage *st) {
     // Free data for all inodes //
     //////////////////////////////
     for (size_t i = 0; i < st->_cur; i++) {
-        if (st->_inodes[i]._data == NULL) continue;
-        free(st->_inodes[i]._data);
+        im_inode *cur = get(st->inodes, i);
+        free(cur->_data);
+        free(cur);
     }
 
     im_tree_delete(&st->_fstree);
+    delete_list(st->inodes);
 }
 
 static size_t max(size_t x, size_t y) {
@@ -128,15 +129,17 @@ unsigned long im_create(im_storage *st) {
     //////////////////
     // Create inode //
     //////////////////
-    im_inode inode;
-    inode._capacity = 0;
-    inode._stat.st_size = 0;
-    inode._stat.st_ino = st->_cur;
-    inode._data = NULL;
 
-    add_im_inode(st, inode);
+    im_inode *inode = malloc(sizeof(im_inode));
 
-    return inode._stat.st_ino;
+    inode->_capacity = 0;
+    inode->_stat.st_size = 0;
+    inode->_stat.st_ino = st->_cur++;
+    inode->_data = NULL;
+    
+    push_back(st->inodes, inode);
+
+    return inode->_stat.st_ino;
 }
 
 int im_tree_add_entry(im_storage *st, const char *path, bool is_dir, size_t inode) {
@@ -171,32 +174,26 @@ int im_tree_add_entry(im_storage *st, const char *path, bool is_dir, size_t inod
         if (!parent->dir) {
             return -1;
         } 
-        
-        im_tree_node **new_data = (im_tree_node **) realloc(parent->entries, (parent->entries_count + 1) * sizeof(im_tree_node *));
-        if (new_data == NULL) {
-            return -1;
-        }
-        
+         
         im_tree_node node = {
             .dir = is_dir,
             .inode = inode,
-            .entries = NULL,
             .entries_count = 0,
             .fname = basename_str,
-            .obsolete = false
+            .parent = parent,
+            .parent_id = parent->entries_count,
         };
         im_tree_node *new_node = (im_tree_node *) malloc(sizeof(im_tree_node));         //TODO
         *new_node = node;
         
         if (is_dir) {
-            new_node->entries = malloc(sizeof(im_tree_node *) * 2);
-            new_node->entries[0] = new_node;
-            new_node->entries[1] = parent;
+            new_node->entries = create_list();
+            push_back(new_node->entries, new_node);
+            push_back(new_node->entries, parent);
             new_node->entries_count = 2;
         }
 
-        parent->entries = new_data;
-        parent->entries[parent->entries_count] = new_node;
+        push_back(parent->entries, new_node);
         parent->entries_count++;
     } else {
         return -1;
@@ -244,17 +241,18 @@ im_tree_node* im_tree_get_entry(im_storage *st, const char *path) {
                 return NULL;
             }
             found = true;
-            cur = cur->entries[0];
+            cur = get(cur->entries, 0);
         } else if (strcmp(fname, "..") == 0) {
             if (cur->entries_count < 2) {
                 return NULL;
             }
             found = true;
-            cur = cur->entries[1];
+            cur = get(cur->entries, 1);
         } else {
             for (size_t i = 0; i < cur->entries_count; i++) {
-                if (!cur->entries[i]->obsolete && (strcmp(cur->entries[i]->fname, fname) == 0)) {
-                    cur = cur->entries[i];
+                im_tree_node *next = get(cur->entries, i);
+                if (strcmp(next->fname, fname) == 0) {
+                    cur = next;
                     found = true;
                     break;
                 }
@@ -284,13 +282,12 @@ im_tree im_tree_create() {
         .fname = "",
         .dir = true,
         .inode = 0,
-        .obsolete = false,
     };
     *root = root_v;
-    root->entries = malloc(sizeof(im_tree_node *) * 2);
+    root->entries = create_list();
     root->entries_count = 2;
-    root->entries[0] = root;
-    root->entries[1] = root;
+    push_back(root->entries, root); 
+    push_back(root->entries, root);
 
     im_tree tree = {
         .root_node = root, 
@@ -299,18 +296,25 @@ im_tree im_tree_create() {
     return tree;
 }
 
-void im_tree_delete_node(im_tree_node *node) {
+void im_tree_delete_node(im_tree_node *node, bool delete_from_parent) {
     if (node->dir) {
-        for (size_t i = 2; i < node->entries_count; i++) {
-            im_tree_delete_node(node->entries[i]);
-            free(node->entries[i]);
+        im_tree_node *cur;
+        erase(node->entries, 0);
+        erase(node->entries, 0);
+
+        while ((cur = get(node->entries, 0)) != NULL) {
+            im_tree_delete_node(cur, true);
         }
-        free(node->entries);
+        delete_list(node->entries);
     }
 
-    node->obsolete = true;
+    if (delete_from_parent) {
+        erase(node->parent->entries, node->parent_id);
+        node->parent->entries_count--; 
+    }
+    free(node);
 }
 
 void im_tree_delete(im_tree *tree) {
-    im_tree_delete_node(tree->root_node); 
+    im_tree_delete_node(tree->root_node, false); 
 }
